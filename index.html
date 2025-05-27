@@ -18,7 +18,7 @@
       flex-direction: column;
       gap: 4px;
       max-height: 100vh;
-      overflow-y: auto;
+      overflow-y: hidden; /* Hide scrollbar */
     }
     .message {
       animation: fadeIn 0.3s ease;
@@ -41,7 +41,7 @@
       throw new Error("No channel specified");
     }
 
-    // Twitch IRC WebSocket endpoint
+    // Connect to Twitch IRC WebSocket
     const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
 
     ws.addEventListener("open", () => {
@@ -52,21 +52,15 @@
     });
 
     ws.addEventListener("message", (event) => {
-      // Twitch IRC messages come as lines separated by \r\n
       const messages = event.data.split("\r\n").filter(line => line);
       for (const message of messages) {
-        // Respond to PING to stay connected
         if (message.startsWith("PING")) {
           ws.send("PONG :tmi.twitch.tv");
-          console.log("PING-PONG");
           continue;
         }
 
-        // Parse chat messages (PRIVMSG)
-        // Example message:
-        // @badge-info=;badges=;color=#1E90FF;display-name=User;emotes=;flags=;id=;mod=0;room-id=;subscriber=0;turbo=0;user-id=;user-type= :user!user@user.tmi.twitch.tv PRIVMSG #channel :Hello chat!
         if (message.includes("PRIVMSG")) {
-          // Parse tags
+          // Parse IRC tags
           const tagsPart = message.match(/^@([^ ]+) /);
           const tagsRaw = tagsPart ? tagsPart[1] : "";
           const tags = {};
@@ -75,24 +69,25 @@
             tags[key] = val;
           });
 
-          // Get username and message text
+          // Parse username and text message
           const nameMatch = message.match(/:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #[^ ]+ :(.+)/);
-          if (!nameMatch) return;
+          if (!nameMatch) continue;
           const username = tags["display-name"] || nameMatch[1];
           const text = nameMatch[2];
 
           console.log(`[${channel}] ${username}: ${text}`);
 
-          // Create message element
           const el = document.createElement("div");
           el.className = "message";
           el.innerHTML = `<strong style="color:${tags.color || "white"}">${username}</strong>: ${text}`;
           chatBox.appendChild(el);
 
-          if (chatBox.children.length > 20) {
+          // Remove oldest messages if more than 20 to avoid scrollbar
+          while (chatBox.children.length > 20) {
             chatBox.removeChild(chatBox.children[0]);
           }
 
+          // Scroll to bottom (won't cause scrollbar since overflow-y hidden)
           chatBox.scrollTop = chatBox.scrollHeight;
         }
       }
