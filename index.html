@@ -5,40 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Twitch Chat Overlay</title>
 <style>
-  body, html {
-    margin:0; padding:0;
+  html, body {
+    margin: 0;
+    padding: 0;
     font-family: Arial, sans-serif;
     background: #121212;
     color: white;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
   }
-  #homepage, #chat-container {
-    width: 90%;
+
+  #homepage {
+    display: none;
     max-width: 600px;
+    margin: 5vh auto;
+    padding: 20px;
     background: #222;
     border-radius: 8px;
-    padding: 20px;
     box-sizing: border-box;
   }
+
   h1 {
     margin-top: 0;
     text-align: center;
   }
+
   label {
     display: block;
     margin: 12px 0 4px;
   }
+
   input[type="text"], input[type="number"] {
     width: 100%;
     padding: 8px;
     border: none;
     border-radius: 4px;
-    box-sizing: border-box;
     font-size: 1rem;
+    box-sizing: border-box;
   }
+
   button {
     margin-top: 16px;
     width: 100%;
@@ -50,31 +53,50 @@
     color: white;
     cursor: pointer;
   }
+
   button:hover {
     background: #772ce8;
   }
+
   #generated-url {
     margin-top: 12px;
     background: #333;
     padding: 10px;
     border-radius: 5px;
     font-size: 0.9rem;
-    word-break: break-all;
+    word-break: break-word;
   }
+
+  /* Chat overlay styling */
+  #chat-container {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+  }
+
   #chat {
-    padding: 10px;
-    font-size: 1.2rem;
     display: flex;
     flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+    width: 100%;
+    padding: 10px;
+    font-size: 1.2rem;
+    box-sizing: border-box;
     gap: 4px;
-    max-height: 80vh;
-    overflow-y: hidden;
+    overflow: hidden;
     background: transparent;
-    border-radius: 5px;
   }
+
   .message {
     animation: fadeIn 0.3s ease;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
+
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -82,26 +104,23 @@
 </style>
 </head>
 <body>
-<div id="homepage" style="display:none;">
+<div id="homepage">
   <h1>Twitch Chat Overlay</h1>
   <p>
-    This tool lets you display a Twitch channel's chat as a clean overlay in OBS or other streaming software.
-  </p>
-  <p>
-    Just enter the Twitch username below and optionally choose background opacity. The tool will generate a URL you can add as a browser source in OBS.
+    This tool displays a Twitch channel's chat in a clean, background-free overlay for OBS or other broadcasting tools.
   </p>
   <label for="username">Twitch Channel Username:</label>
   <input id="username" type="text" placeholder="e.g. twitchusername" autocomplete="off" />
-  
+
   <label for="background">Background Opacity (0-100, optional):</label>
-  <input id="background" type="number" min="0" max="100" placeholder="e.g. 0 for transparent, 10 for 10%" />
-  
+  <input id="background" type="number" min="0" max="100" placeholder="0 = transparent" />
+
   <button id="generateBtn">Generate URL</button>
-  
+
   <div id="generated-url" style="display:none;"></div>
 </div>
 
-<div id="chat-container" style="display:none; width:100vw; height:100vh; background: transparent;">
+<div id="chat-container">
   <div id="chat"></div>
 </div>
 
@@ -116,7 +135,6 @@
   const generatedUrlDiv = document.getElementById("generated-url");
 
   if (!channel) {
-    // Show homepage
     homepage.style.display = "block";
 
     document.getElementById("generateBtn").onclick = () => {
@@ -128,77 +146,62 @@
         return;
       }
 
-      // Validate background opacity
       if (bg === "") {
         bg = null;
       } else {
         bg = parseInt(bg);
         if (isNaN(bg) || bg < 0 || bg > 100) {
-          alert("Background opacity must be a number between 0 and 100.");
+          alert("Background opacity must be 0-100.");
           return;
         }
       }
 
-      // Build URL relative to current location
       let url = window.location.origin + window.location.pathname + `?channel=${encodeURIComponent(user)}`;
-      if (bg !== null) {
-        url += `&background=${bg}`;
-      }
-
+      if (bg !== null) url += `&background=${bg}`;
       generatedUrlDiv.style.display = "block";
       generatedUrlDiv.textContent = url;
-      // Optionally select the URL for easy copying
-      navigator.clipboard.writeText(url).catch(() => {}); // try copy silently
+      navigator.clipboard.writeText(url).catch(() => {});
     };
-
   } else {
-    // Show chat overlay
+    chatContainer.style.display = "block";
     homepage.style.display = "none";
-    chatContainer.style.display = "flex";
 
-    // Set background opacity
-    if (bgParam === "none") {
-      chatBox.style.background = "transparent";
-    } else if (bgParam !== null && !isNaN(parseInt(bgParam))) {
+    // Apply optional background
+    if (bgParam !== null && !isNaN(parseInt(bgParam))) {
       let opacity = Math.min(Math.max(parseInt(bgParam), 0), 100) / 100;
       chatBox.style.background = `rgba(0,0,0,${opacity})`;
-    } else {
-      chatBox.style.background = "transparent";
     }
 
-    // Connect to Twitch IRC WebSocket
     const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
 
     ws.addEventListener("open", () => {
-      console.log("WebSocket connected");
       ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership");
-      ws.send("NICK justinfan12345"); // anonymous login
+      ws.send("NICK justinfan12345");
       ws.send(`JOIN #${channel.toLowerCase()}`);
     });
 
     ws.addEventListener("message", (event) => {
-      const messages = event.data.split("\r\n").filter(line => line);
-      for (const message of messages) {
-        if (message.startsWith("PING")) {
+      const messages = event.data.split("\r\n").filter(Boolean);
+      for (const msg of messages) {
+        if (msg.startsWith("PING")) {
           ws.send("PONG :tmi.twitch.tv");
           continue;
         }
 
-        if (message.includes("PRIVMSG")) {
-          const tagsPart = message.match(/^@([^ ]+) /);
-          const tagsRaw = tagsPart ? tagsPart[1] : "";
+        if (msg.includes("PRIVMSG")) {
+          const tagsMatch = msg.match(/^@([^ ]+) /);
+          const tagsRaw = tagsMatch ? tagsMatch[1] : "";
           const tags = {};
-          tagsRaw.split(";").forEach(pair => {
-            const [key, val] = pair.split("=");
-            tags[key] = val;
+          tagsRaw.split(";").forEach(p => {
+            const [k, v] = p.split("=");
+            tags[k] = v;
           });
 
-          const nameMatch = message.match(/:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #[^ ]+ :(.+)/);
-          if (!nameMatch) continue;
-          const username = tags["display-name"] || nameMatch[1];
-          const text = nameMatch[2];
+          const msgMatch = msg.match(/:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #[^ ]+ :(.+)/);
+          if (!msgMatch) continue;
 
-          console.log(`[${channel}] ${username}: ${text}`);
+          const username = tags["display-name"] || msgMatch[1];
+          const text = msgMatch[2];
 
           const el = document.createElement("div");
           el.className = "message";
@@ -212,14 +215,6 @@
           chatBox.scrollTop = chatBox.scrollHeight;
         }
       }
-    });
-
-    ws.addEventListener("close", () => {
-      console.log("WebSocket closed");
-    });
-
-    ws.addEventListener("error", (err) => {
-      console.error("WebSocket error:", err);
     });
   }
 </script>
