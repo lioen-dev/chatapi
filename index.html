@@ -10,6 +10,8 @@
       overflow: hidden;
       font-family: sans-serif;
       color: white;
+      height: 100%;
+      width: 100%;
     }
     #chat {
       padding: 10px;
@@ -19,6 +21,7 @@
       gap: 4px;
       max-height: 100vh;
       overflow-y: hidden; /* Hide scrollbar */
+      /* background will be set dynamically */
     }
     .message {
       animation: fadeIn 0.3s ease;
@@ -35,10 +38,23 @@
     const chatBox = document.getElementById("chat");
     const urlParams = new URLSearchParams(window.location.search);
     const channel = urlParams.get("channel");
+    const bgParam = urlParams.get("background");
 
     if (!channel) {
       document.body.innerHTML = "<p style='color:red'>Missing ?channel=username in URL</p>";
       throw new Error("No channel specified");
+    }
+
+    // Set background based on ?background param
+    if (bgParam === "none") {
+      chatBox.style.background = "transparent";
+    } else if (bgParam !== null && !isNaN(parseInt(bgParam))) {
+      // opacity from 0 to 100, convert to 0.0 - 1.0
+      let opacity = Math.min(Math.max(parseInt(bgParam), 0), 100) / 100;
+      chatBox.style.background = `rgba(0,0,0,${opacity})`;
+    } else {
+      // default background, fully transparent or subtle black
+      chatBox.style.background = "transparent";
     }
 
     // Connect to Twitch IRC WebSocket
@@ -60,7 +76,6 @@
         }
 
         if (message.includes("PRIVMSG")) {
-          // Parse IRC tags
           const tagsPart = message.match(/^@([^ ]+) /);
           const tagsRaw = tagsPart ? tagsPart[1] : "";
           const tags = {};
@@ -69,7 +84,6 @@
             tags[key] = val;
           });
 
-          // Parse username and text message
           const nameMatch = message.match(/:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #[^ ]+ :(.+)/);
           if (!nameMatch) continue;
           const username = tags["display-name"] || nameMatch[1];
@@ -82,12 +96,10 @@
           el.innerHTML = `<strong style="color:${tags.color || "white"}">${username}</strong>: ${text}`;
           chatBox.appendChild(el);
 
-          // Remove oldest messages if more than 20 to avoid scrollbar
           while (chatBox.children.length > 20) {
             chatBox.removeChild(chatBox.children[0]);
           }
 
-          // Scroll to bottom (won't cause scrollbar since overflow-y hidden)
           chatBox.scrollTop = chatBox.scrollHeight;
         }
       }
