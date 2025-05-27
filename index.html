@@ -32,8 +32,9 @@
 <body>
   <div id="chat"></div>
 
-  <script src="https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js"></script>
-  <script>
+  <script type="module">
+    import tmi from "https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js.browser.js";
+
     const chatBox = document.getElementById("chat");
     const urlParams = new URLSearchParams(window.location.search);
     const channel = urlParams.get("channel");
