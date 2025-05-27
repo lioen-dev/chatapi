@@ -106,9 +106,24 @@
 <body>
 <div id="homepage">
   <h1>Twitch Chat Overlay</h1>
-  <p>
-    This tool displays a Twitch channel's chat in a clean, background-free overlay for OBS or other broadcasting tools.
-  </p>
+<p>
+  This tool displays a Twitch channel's chat in a clean, background-free overlay. You can use it in OBS or any other streaming software that supports browser sources.
+</p>
+
+<h3>📺 How to use in OBS:</h3>
+<ol>
+  <li>Enter the Twitch username below and click <strong>Generate URL</strong>.</li>
+  <li>Copy the generated link.</li>
+  <li>In OBS, go to <strong>Sources → + → Browser</strong>.</li>
+  <li>Paste the link into the URL field.</li>
+  <li>Set the width and height (e.g., 800×600 or whatever fits your layout).</li>
+  <li>Make sure <strong>Background Color → Custom Color</strong> is transparent if needed.</li>
+</ol>
+
+  <br>
+  <hr>
+  <br>
+  
   <label for="username">Twitch Channel Username:</label>
   <input id="username" type="text" placeholder="e.g. twitchusername" autocomplete="off" />
 
