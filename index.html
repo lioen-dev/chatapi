@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Custom Twitch Chat Overlay</title>
@@ -31,10 +31,7 @@
 </head>
 <body>
   <div id="chat"></div>
-
-  <script type="module">
-    import tmi from "https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js.browser.js";
-
+  <script>
     const chatBox = document.getElementById("chat");
     const urlParams = new URLSearchParams(window.location.search);
     const channel = urlParams.get("channel");
@@ -44,43 +41,69 @@
       throw new Error("No channel specified");
     }
 
-    console.log(`Attempting to connect to Twitch channel: ${channel}`);
+    // Twitch IRC WebSocket endpoint
+    const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
 
-    const client = new tmi.Client({
-      connection: {
-        secure: true,
-        reconnect: true,
-      },
-      channels: [channel],
+    ws.addEventListener("open", () => {
+      console.log("WebSocket connected");
+      ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership");
+      ws.send("NICK justinfan12345"); // anonymous login
+      ws.send(`JOIN #${channel.toLowerCase()}`);
     });
 
-    client.connect()
-      .then(() => console.log("Connected to Twitch chat"))
-      .catch((err) => console.error("Connection error:", err));
+    ws.addEventListener("message", (event) => {
+      // Twitch IRC messages come as lines separated by \r\n
+      const messages = event.data.split("\r\n").filter(line => line);
+      for (const message of messages) {
+        // Respond to PING to stay connected
+        if (message.startsWith("PING")) {
+          ws.send("PONG :tmi.twitch.tv");
+          console.log("PING-PONG");
+          continue;
+        }
 
-    client.on("connected", (address, port) => {
-      console.log(`Connected to ${address}:${port}`);
-    });
+        // Parse chat messages (PRIVMSG)
+        // Example message:
+        // @badge-info=;badges=;color=#1E90FF;display-name=User;emotes=;flags=;id=;mod=0;room-id=;subscriber=0;turbo=0;user-id=;user-type= :user!user@user.tmi.twitch.tv PRIVMSG #channel :Hello chat!
+        if (message.includes("PRIVMSG")) {
+          // Parse tags
+          const tagsPart = message.match(/^@([^ ]+) /);
+          const tagsRaw = tagsPart ? tagsPart[1] : "";
+          const tags = {};
+          tagsRaw.split(";").forEach(pair => {
+            const [key, val] = pair.split("=");
+            tags[key] = val;
+          });
 
-    client.on("disconnected", (reason) => {
-      console.log(`Disconnected: ${reason}`);
-    });
+          // Get username and message text
+          const nameMatch = message.match(/:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #[^ ]+ :(.+)/);
+          if (!nameMatch) return;
+          const username = tags["display-name"] || nameMatch[1];
+          const text = nameMatch[2];
 
-    client.on("message", (channelName, tags, message, self) => {
-      if (self) return; // Ignore messages from the bot itself
-      console.log(`[${channelName}] ${tags["display-name"]}: ${message}`);
+          console.log(`[${channel}] ${username}: ${text}`);
 
-      const el = document.createElement("div");
-      el.className = "message";
-      el.innerHTML = `<strong style="color:${tags.color || 'white'}">${tags["display-name"]}</strong>: ${message}`;
-      chatBox.appendChild(el);
+          // Create message element
+          const el = document.createElement("div");
+          el.className = "message";
+          el.innerHTML = `<strong style="color:${tags.color || "white"}">${username}</strong>: ${text}`;
+          chatBox.appendChild(el);
 
-      if (chatBox.children.length > 20) {
-        chatBox.removeChild(chatBox.children[0]);
+          if (chatBox.children.length > 20) {
+            chatBox.removeChild(chatBox.children[0]);
+          }
+
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
       }
+    });
 
-      // Scroll to bottom when new message arrives
-      chatBox.scrollTop = chatBox.scrollHeight;
+    ws.addEventListener("close", () => {
+      console.log("WebSocket closed");
+    });
+
+    ws.addEventListener("error", (err) => {
+      console.error("WebSocket error:", err);
     });
   </script>
 </body>
