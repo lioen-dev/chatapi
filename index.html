@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Twitch Chat Overlay</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+    iframe {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const channel = urlParams.get('channel');
+
+    if (!channel) {
+      document.body.innerHTML = '<p style="color:white;">Missing ?channel=USERNAME in URL.</p>';
+    } else {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.twitch.tv/embed/${channel}/chat?parent=${location.hostname}`;
+      document.body.appendChild(iframe);
+    }
+  </script>
+</body>
+</html>
