@@ -2,33 +2,71 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Twitch Chat Overlay</title>
+  <title>Custom Twitch Chat Overlay</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
       background: transparent;
+      overflow: hidden;
+      font-family: sans-serif;
+      color: white;
     }
-    iframe {
-      width: 100vw;
-      height: 100vh;
-      border: none;
+
+    #chat {
+      padding: 10px;
+      font-size: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .message {
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
+  <div id="chat"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
-    const channel = urlParams.get('channel');
+    const channel = urlParams.get("channel");
 
     if (!channel) {
-      document.body.innerHTML = '<p style="color:white;">Missing ?channel=USERNAME in URL.</p>';
-    } else {
-      const iframe = document.createElement('iframe');
-      iframe.src = `https://www.twitch.tv/embed/${channel}/chat?parent=${location.hostname}`;
-      document.body.appendChild(iframe);
+      document.body.innerHTML = "<p style='color:red'>Missing ?channel=username in URL</p>";
+      throw new Error("No channel specified");
     }
+
+    const client = new tmi.Client({
+      connection: {
+        secure: true,
+        reconnect: true
+      },
+      channels: [channel]
+    });
+
+    client.connect();
+
+    const chatBox = document.getElementById("chat");
+
+    client.on("message", (channel, tags, message, self) => {
+      const el = document.createElement("div");
+      el.className = "message";
+      el.innerHTML = `<strong style="color:${tags.color || 'white'}">${tags["display-name"]}</strong>: ${message}`;
+      chatBox.appendChild(el);
+
+      // Optional: remove old messages after 20 lines
+      if (chatBox.children.length > 20) {
+        chatBox.removeChild(chatBox.children[0]);
+      }
+    });
   </script>
 </body>
 </html>
